@@ -1,0 +1,13 @@
+{"test_id": {
+	"channel":{
+		"UDP":{
+			"APtoClient":"Done",
+			"ClienttoAP":"Done"
+			},
+		"TCP":{
+			"APtoClient":"Done",
+			"ClienttoAP":"Done"
+			}
+	}
+}
+}

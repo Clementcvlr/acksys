@@ -1,0 +1,12 @@
+flask
+flask-appconfig>=0.10
+flask-bootstrap
+flask-nav
+flask-debug
+flask-sqlalchemy
+flask-login
+flask-table
+flask-wtf
+wtforms
+dominate
+werkzeug

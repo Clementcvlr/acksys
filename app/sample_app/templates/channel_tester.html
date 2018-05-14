@@ -1,0 +1,23 @@
+{% import "bootstrap/wtf.html" as wtf %}
+
+{%- extends "base.html" %}
+
+
+{% block content %}
+   <div class="container">
+      <div class="jumbotron">
+        <p> {{test.toto}}</p>
+      </div>
+   <div class="col-md-12">
+     {% if request.args.get('legacy') -%}
+       {{wtf.quick_form(form, novalidate=True)}}
+     {%- else -%}
+
+       <!--
+	-->
+       {{wtf.form_field(form.channels , horizontal_columns=('lg', 10100, 1100))}}
+       {{wtf.form_field(form.attenuator , horizontal_columns=('lg', 10100, 1100))}}
+
+     {%- endif %}
+   </div>
+{%- endblock %}

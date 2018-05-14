@@ -1,0 +1,59 @@
+{% import "bootstrap/wtf.html" as wtf %}
+
+<div class="col-md-12" id="mydiv">
+{%- extends "base.html" %}
+{% block content %}
+
+       <table class="table table-striped table-hover">
+            <tr>
+                <th>Channel</th>
+                <th>Prot</th>
+                <th>Sens</th>
+                <th>Status</th>
+		
+            </tr>
+            <tr>
+		{% for n in Config['channels'] %}
+                <td rowspan={{ Config['prot']|length * 2 }} > {{ n }}</td>
+		{% for prot in Config['prot'] %} 
+                <td rowspan=2>{{ prot }} </td>
+		<td>{{ Config['sens'][0] }}
+               	{% if json_data['12']['UDP']["ClienttoAP"] == "Done" %}
+                <td><img src="/static/img/done.png" alt="" height=20 width=20></img></th>
+		{% elif json_data['12']['UDP']["ClienttoAP"] == "In Progress" %}
+                <td><img src="/static/img/in_progress.png" alt="" height=20 width=20></img></th>
+		
+		{% endif %}
+	    </tr>
+	    <tr>
+                <td>{{ Config['sens'][1] }}
+		{% if json_data['12']['UDP']["ClienttoAP"] == "Done" %}
+                <td><img src="/static/img/done.png" alt="" height=20 width=20></img></th>
+		{% elif json_data['12']['UDP']["ClienttoAP"] == "In Progress" %}
+                <td><img src="/static/img/in_progress.png" alt="" height=20 width=20></img></th>
+		
+		{% endif %}
+	    </tr>
+		{% endfor %}
+		{% endfor %}
+	    </tr>
+
+
+		
+            </tr>
+        </table>
+	{#{ table }#}
+
+   </div>
+<dl>
+{% for key, value in json_data.iteritems() %}
+    <dt>{{ key|e }}</dt>
+    <dd>{{ value|e }}</dd>
+{% endfor %}
+</dl>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script>
+    	console.log('Ajax First');
+	setTimeout(function() {$('#mydiv').load('{{  url_for('frontend.Res_Table') }}');}, 3000) /* time in milliseconds (ie 2 seconds)*/
+</script>
+{%- endblock %}
