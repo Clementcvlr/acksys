@@ -20,8 +20,9 @@ from .forms import PerfTesterForm, LoginForm, RegisterForm, ChannelTesterForm
 from .nav import nav
 from flask_table import Table, Col
 from .table import *
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+#from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_user import roles_required, login_required
 from .users import User, db
 #from .candela_channel_tester import CandelaChannelTester
 
@@ -30,11 +31,11 @@ from .users import User, db
 
 #db = SQLAlchemy()
 frontend = Blueprint('frontend', __name__)
-login_manager = LoginManager()
-login_manager.login_view = "frontend.login"
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+#login_manager = LoginManager()
+#login_manager.login_view = "frontend.login"
+#@login_manager.user_loader
+#def load_user(user_id):
+#    return User.query.get(int(user_id))
 #branding2 = img(src='static/img/logo2.png')
 
 # We're adding a navbar as well through flask-navbar. In our example, the
@@ -206,7 +207,7 @@ def signup():
 
     if form.validate_on_submit():
         hashed_password = generate_password_hash(form.password.data, method='sha256')
-        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password)
+        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password, email_confirmed_at=datetime.datetime.utcnow(),role=form.role.data)
         db.session.add(new_user)
         db.session.commit()
 
@@ -223,7 +224,7 @@ def logout():
 
 
 @frontend.route('/Results/', methods=('GET', 'POST'))
-@login_required
+@roles_required('Admin')
 def Res_Table():
 	# import things
 	Config ={}

@@ -18,6 +18,7 @@ from flask_bootstrap import Bootstrap
 from flask_sqlalchemy  import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 #from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_user import UserManager
 
 from .frontend import frontend
 from .nav import nav
@@ -38,15 +39,27 @@ def create_app(configfile=None):
 	# Install our Bootstrap extension
 	Bootstrap(app)
 
-	app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/database.db'
+	app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database2.db'
+	app.config['USER_EMAIL_SENDER_EMAIL'] = 'clementvl@gmail.com'
+	app.config['DEBUG'] = True
 	#from .users import User
 	#login_manager = LoginManager()
-	from sample_app.frontend import login_manager
-	login_manager.init_app(app)
+#	from sample_app.frontend import login_manager
+	#login_manager.init_app(app)
 	 
 	from sample_app.users import db
 	print("Init DataBase")
 	db.init_app(app)
+	from sample_app.users import User, Role, UserRoles
+	user_manager = UserManager(app, db, User)
+	app.app_context().push()
+	db.create_all()
+	print("Adding Roles to db")
+	admin_role = Role(name='Admin')
+	#db.session.add(admin_role)
+	comm_role = Role(name='Com')
+	#db.session.add(comm_role)
+	#db.session.commit()
 	 
 
 	# Our application uses blueprints as well; these go well with the
