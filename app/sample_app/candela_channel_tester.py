@@ -5,9 +5,26 @@ from time import sleep
 import shutil, json
 from acksys_func import Ping, Get_SSH_Result, check_ssh, telnet
 from scp import SCPClient
+from pathlib2 import Path
 
-#execfile("config_py")
-class CandelaChannelTester:
+myconfig ={}
+myconfig['EUT'] = "192.168.100.20"
+myconfig['test_id'] = "1"
+myconfig['operator'] = "cc"
+myconfig['htmode'] = "HT40"
+myconfig['wifi_card'] = "0"
+myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','52','56','60','100','104','108','112','116','120','124','128','149','165' ]
+myconfig['attenuator'] = "39"
+myconfig['mode'] = "ap"
+myconfig['prot'] = "TCP"
+myconfig['tid_ap'] = "TID_1-1-1-3"
+myconfig['tid_client'] = "TID_1-1-2-3"
+myconfig['tx_power'] = "10"
+myconfig['reboot'] = False
+myconfig['attn_list'] = ['320']
+myconfig['attn_duration'] = "10"
+
+class CandelaChannelTester():
 	def Get_Var_From_Form():
 		#Mettre ChannelTesterForm(csrf_enabled=False) en paramètre au moment de l'appel
 		form = form
@@ -45,9 +62,9 @@ class CandelaChannelTester:
 
 			if e.errno == errno.EEXIST:
 				
-					print("Folder already exists")
-			else :
-				raise("Error while creating folder")
+				print("Folder already exists")
+	#		else :
+	#			raise("Error while creating folder")
 
 	def Get_Endpoint_Status(self, Endpoint):
 
@@ -81,15 +98,15 @@ class CandelaChannelTester:
                 	json.dump(f_data,f)
 			f.close()
 
-		print("LALALALALALA", endpoint)
 
 		#Open SSH Session	
-		ssh_session = check_ssh(Config['EUT'])
+		#ssh_session = check_ssh(Config['EUT'])
 		
 		#On reboot l'EUT si requis par le formulaire (Reboot_request est un boolean)
 		if Config['reboot'] :
-			#TODO:Voir si stdin, stdout, stderr sont utiles
-			stdin, stdout, stderr = ssh_session.exec_command("reboot")
+			ssh = check_ssh(Config['EUT'])
+			ssh.exec_command("reboot")
+			ssh.close()
 
 
 		#Arrêt de tous les Cross Connects
@@ -103,22 +120,20 @@ class CandelaChannelTester:
 		#Demarrage du reporting manager
 		print("Starting reporting...")
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report YES YES YES YES")
-		time.sleep(1)
+		time.sleep(4)
 
 		#Configuration de l'atténuateur pour la detection de l'association  avec le cross connect
 		print("Setting Attenuators...")
-		time.sleep(4)
 		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all 400")
-		print("Starting Attenuators...")
-		time.sleep(4)
-		telnet("set_attenuator 1 1 " + str(Config['attenuator'])  + " all START")
+		#print("Starting Attenuators...")
 		time.sleep(4)
 		
 		#Demarrage du Cross Connect
 		telnet("start_group " + cand_id)
 
 
-		#On verifie que le Cross Connect passe au status "RUNNIN"
+		#On verifie que le Cross Connect passe au status "RUNNING"
+		#Tant que endpoint status est différent de "RUNNING" et que time < timeout (50s)
 		timeout = time.time() + 50
 		while str(self.Get_Endpoint_Status(endpoint + "-B")) != "RUNNING"and time.time() <  timeout :
 			print(self.Get_Endpoint_Status(endpoint + "-B"))
@@ -137,11 +152,13 @@ class CandelaChannelTester:
 		if len(Config['attn_list']) > 1 :
 			time.sleep(1)
 			telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all START")
+		else :
+			telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all " + str(Config['attn_list']))
 
 		#Détermination du temps de l'essai	
 		test_timeout = time.time() +  len(Config['attn_list']) *  int(Config['attn_duration']) 		
 		while time.time() < test_timeout :
-			#Afficher un compte à rebours sur la page Web
+			#Afficher un compte à rebours sur la page Web...
 			print("Test en cours : " + cand_id + " " + channel + " " + str(time.time()))
 			time.sleep(1)
 			
@@ -159,14 +176,16 @@ class CandelaChannelTester:
 
 		#Arret du script de monitoring sur EUT
 		print("Stopping monitoring Script in EUT")
+		ssh_session = check_ssh(Config['EUT'])
 		ssh_session.exec_command("killall script.sh")	
 		
 		#Lancement du script de récupération des DATAS de l'EUT
 		#TODO: Remplacer /tmp/candela... par le vrai PATH du script de recup. Voir si on peut pas copier directement le script à la racine de l'app...
 		scp = SCPClient(ssh_session.get_transport()) 
-		scp.get('/usr/monitoring_v1/', '/tmp/candela_channel/monitoring/', recursive=True)
+		#TODO : Lancer le script monitoring dans le produit...
+		#scp.get('/usr/monitoring_v1/', '/tmp/candela_channel/monitoring/', recursive=True)
 		#sleep  : Pour être sur que le cross connect est bien arrété et qu'il ne recréera pas de fichier     après l'arrêt du reporting manager
-		time.sleep(4)
+		#time.sleep(4)
 		telnet("report " + "/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report" + "NO") #TODO : Creer variable pour le chamin du gui
 
 		#Update du fichier json avec le statut done pour le test fini
@@ -191,11 +210,12 @@ class CandelaChannelTester:
 	def __init__(self, Config):
 		print("IN MY CANDELA CHANNEL TEST", Config)
 		#Ouverture du flux SSH
-		ssh = check_ssh(Config['EUT'], 'root')
-		self.create_folder('/tmp/candela_channel/' + Config['test_id'])
+		my_file = Path("/tmp/candela_channel/" + str(Config['test_id']))
+		if not my_file.is_dir():
+			os.makedirs('/tmp/candela_channel/' + str(Config['test_id']))
 		#Arret et suppression du GUI
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report NO")
-		for f in os.listdir("/tmp/arm"):
+		for f in os.listdir("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report"):
 			os.remove("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f)  
 
 
@@ -204,7 +224,7 @@ class CandelaChannelTester:
 		#ssh.exec_command("uci set wireless.radio" + Config['mode'] + " ; uci commit ; apply_config")
 		#Wait For Ping
 		Ping(Config['EUT'])
-		if Config['mode'] == "AP" :
+		if Config['mode'] == "ap" :
 			print("load " + str(Config['tid_ap']) + " OVERWRITE")
 			telnet("load " + str(Config['tid_ap']) + " OVERWRITE")
 			cxmode = "AP"
@@ -251,14 +271,18 @@ class CandelaChannelTester:
 				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '902')
 				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '903')
 				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '904')
+			
+			ssh = check_ssh(Config['EUT'], 'root')
 				
 			#Set channel et 802.11 config sur EUT
 			if int(channel) < 15 :
-				ssh.exec_command("uci set wireless.radio" + int(Config['wifi_card'] - 1) + ".channel=$chan ; uci set wireless.radio" + int(Config['wifi_card'] - 1) + ".hwmode=11no ; uci set wireless.radio" + int(Config['wifi_card'] - 1) + ".htmode=HT40 ; uci commit ; apply_config")
+				print("in UCI < 15", Config['wifi_card'], channel)
+				ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel="+ str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=11no ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=HT40 ; uci commit ; apply_config")
 			elif int(channel) > 15 :
 			#TODO : Change hwmode + htmode avec les entrees du form
-				ssh.exec_command("uci set wireless.radio" + str(int(str(Config['wifi_card'])) - 1) + ".channel=" + str(channel) +" ; uci set wireless.radio" + str(int(str(Config['wifi_card'])) - 1) + ".hwmode=11ac ; uci set wireless.radio" + str(int(str(Config['wifi_card'])) - 1) + ".htmode=VHT80 ; uci commit ; apply_config")
+				ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel=" + str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=11ac ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=VHT80 ; uci commit ; apply_config")
 			time.sleep(8)
+			ssh.close()
 			
 			#Set channel et 802.11 config sur candela
 			#TODO : ajouter form pour wiphy0 et pour nombre antennes sur cand
@@ -292,7 +316,9 @@ class CandelaChannelTester:
 				
 
 
+while True :
 
+	a = CandelaChannelTester(myconfig)
 
 #-----------------------------Ma LIB --------------------------------------
 #-------COPIER FICHIER---------
