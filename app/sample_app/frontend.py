@@ -13,6 +13,7 @@ from markupsafe import escape
 import dominate
 from dominate.tags import img
 import json
+import datetime
 import os
 
 #from .forms import ChannelTesterForm
@@ -22,12 +23,13 @@ from flask_table import Table, Col
 from .table import *
 #from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_user import roles_required, login_required
-from .users import User, db
+from flask_user import UserManager, current_user,roles_required, login_required
+from .users import User, UserRoles, Role, db
 #from .candela_channel_tester import CandelaChannelTester
 
 #TODO: Delete this test lines :
 #from .arm import Arm
+#user_manager = UserManager()
 
 #db = SQLAlchemy()
 frontend = Blueprint('frontend', __name__)
@@ -207,7 +209,9 @@ def signup():
 
     if form.validate_on_submit():
         hashed_password = generate_password_hash(form.password.data, method='sha256')
-        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password, email_confirmed_at=datetime.datetime.utcnow(),role=form.role.data)
+	print(type(form.role.data), type(datetime.datetime.utcnow()))
+        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password, email_confirmed_at=datetime.datetime.utcnow())
+	new_user.roles.append(Role(name='Admin'))
         db.session.add(new_user)
         db.session.commit()
 

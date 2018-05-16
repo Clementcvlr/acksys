@@ -89,5 +89,5 @@ class RegisterForm(FlaskForm):
     email = StringField('email', validators=[Required(), Email(message='Invalid email')])
     username = StringField('username', validators=[Required()])
     password = PasswordField('password', validators=[Required()])
-    role = StringField('username', validators=[Required()])
+    role = StringField('Role', validators=[Required()])
 

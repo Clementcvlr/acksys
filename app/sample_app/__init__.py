@@ -18,8 +18,7 @@ from flask_bootstrap import Bootstrap
 from flask_sqlalchemy  import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 #from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from flask_user import UserManager
-
+from flask_user import current_user, login_required, roles_required, UserManager, UserMixin
 from .frontend import frontend
 from .nav import nav
 
@@ -39,13 +38,12 @@ def create_app(configfile=None):
 	# Install our Bootstrap extension
 	Bootstrap(app)
 
-	app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database2.db'
+	app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database3.db'
 	app.config['USER_EMAIL_SENDER_EMAIL'] = 'clementvl@gmail.com'
 	app.config['DEBUG'] = True
+	app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 	#from .users import User
 	#login_manager = LoginManager()
-#	from sample_app.frontend import login_manager
-	#login_manager.init_app(app)
 	 
 	from sample_app.users import db
 	print("Init DataBase")
