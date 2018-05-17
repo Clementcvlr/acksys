@@ -42,6 +42,7 @@ def create_app(configfile=None):
 	app.config['USER_EMAIL_SENDER_EMAIL'] = 'clementvl@gmail.com'
 	app.config['DEBUG'] = True
 	app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+	app.config['USER_APP_NAME'] = "Acksys Test Base"
 	#from .users import User
 	#login_manager = LoginManager()
 	 
