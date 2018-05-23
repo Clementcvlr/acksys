@@ -12,7 +12,8 @@ myconfig['test_id'] = "20"
 myconfig['operator'] = "cc"
 myconfig['htmode'] = "HT40"
 myconfig['wifi_card'] = "0"
-myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','52','56','60','100','104','108','112','116','120','124','128','149','165' ]
+#myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','52','56','60','100','104','108','112','116','120','124','128','149','165' ]
+myconfig['channels'] = ['1','2']
 myconfig['attenuator'] = "39"
 myconfig['mode'] = "ap"
 myconfig['prot'] = "TCP"
@@ -62,6 +63,24 @@ mylog = InitJson(myconfig)
 print(mylog)
 print(type(mylog))
 data = json.loads(mylog)
-data["9"]["ap"]["TCP"]["AP to Client"] = "In Progress"
+data["1"]["ap"]["TCP"]["AP to Client"] = "In Progress"
 data_json = json.dumps(data, indent = 12)
-print(data_json)
+#print(data_json)
+with open("/tmp/candela_channel/" + str(Config['test_id']) + "_HT20_24G/" + "myjsonfile.json", 'w') as f :
+			json.dump(data, f)
+
+
+sens = "AP_vers_Client"
+cxmode = "ap"
+cx_prot ="TCP"
+channel = "2"
+
+with open("/tmp/candela_channel/" + str(Config['test_id']) + "_HT20_24G/" + "myjsonfile.json", 'r+') as f :
+	data = json.load(f)
+	print(type(data))
+	#data[channel][cxmode][cx_prot][sens] = "In_Progress"
+	#json.dumps(data, f)
+	print( data["1"])
+	data[channel][cxmode][cx_prot][sens] = "TOTO"
+	json.dump(data,f)
+

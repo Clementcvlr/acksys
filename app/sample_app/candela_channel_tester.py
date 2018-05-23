@@ -16,7 +16,7 @@ myconfig['HT20'] = True
 myconfig['HT40'] = True
 myconfig['HT80'] = True
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "19"
+myconfig['test_id'] = "21"
 myconfig['operator'] = "cc"
 myconfig['htmode'] = "HT20"
 myconfig['wifi_card'] = "0"
@@ -113,7 +113,8 @@ class CandelaChannelTester():
 		for key, value in Config.items() :
         		print("{0} : {1}".format(key, value))
 		#Creating Json File
-		json_data = self.InitJson(Config)
+		json_str = self.InitJson(Config)
+		json_data = json.loads(json_str)
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
 			json.dump(json_data, f)
 		#Arret et suppression du GUI
@@ -132,7 +133,7 @@ class CandelaChannelTester():
 		scp = SCPClient(ssh.get_transport()) 
 		scp.put("script.sh", "/usr/monitoring_v1/script.sh")
 
-		#Config de l'EUT
+		#Config Initiale de l'EUT (enable radio card, setting mode, SSID..)
 		self.logger.debug("Config de l'EUT par uci")
 		ssh.exec_command("uci set wireless.radio" + str(int(Config['wifi_card'])) + ".disabled=0 ; uci set wireless.radio" + str(int(Config['wifi_card'])) + "w0.ssid=TestEtValidationCandela ; uci set wireless.radio" + str(int(Config['wifi_card']))  + "w0.mode=" + str(Config['mode']) + " ; uci commit ; apply_config")
 		scp.close()
@@ -327,8 +328,10 @@ class CandelaChannelTester():
 		#Mise à jour du json
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
-			data[channel][cxmode][cx_prot][sens] = "In_Progress"
+			data[channel][Config['mode']][cx_prot][sens] = "In_Progress"
+			f.seek(0)
 			json.dump(data, f)
+			f.truncate()
 		#Arret et suppression du GUI
 
 
@@ -463,8 +466,11 @@ class CandelaChannelTester():
 		#Mise à jour du json, statut done
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
-			data[channel][cxmode][cx_prot][sens] = "Done"
+			data[channel][Config['mode']][cx_prot][sens] = "Done"
+			f.seek(0)
 			json.dump(data, f)
+			f.truncate()
+			
 	
 
 		#COPIE DES FICHIERS DEPUIS DOSSIER GUI
