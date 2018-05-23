@@ -8,13 +8,19 @@ from scp import SCPClient
 from pathlib2 import Path
 import logging
 
+#Init de la config. A terme, cela sera récupéré par l'interface web
 myconfig ={}
+#TODO : Dans le form, ajouter 3 booleans a cocher pour chaque htmode que l'on souhaite tester
+#Ou un selectfield multiple
+myconfig['HT20'] = True
+myconfig['HT40'] = True
+myconfig['HT80'] = True
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "12"
+myconfig['test_id'] = "19"
 myconfig['operator'] = "cc"
-myconfig['htmode'] = "VHT80"
+myconfig['htmode'] = "HT20"
 myconfig['wifi_card'] = "0"
-myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','161','165' ]
+myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157''161','165' ]
 myconfig['attenuator'] = "39"
 myconfig['mode'] = "ap"
 myconfig['prot'] = "TCP"
@@ -22,10 +28,67 @@ myconfig['tid_ap'] = "TID_1-1-1-3"
 myconfig['tid_client'] = "TID_1-1-2-3"
 myconfig['tx_power'] = "10"
 myconfig['reboot'] = False
-myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
-myconfig['attn_duration'] = "30000"
+#myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
+myconfig['attn_list'] = ['200']
+myconfig['attn_duration'] = "3000"
 
 
+#Config pour 802.11ac 5Ghz - VHT80
+myconfig_vht80 = myconfig.copy()
+myconfig_vht80['channels'] = ['36','52','100','116','149']
+myconfig_vht80['htmode'] = "VHT80"
+myconfig_vht80['hwmode'] = "11ac"
+myconfig_vht80['test_id'] = "{0}_VHT80".format(myconfig_vht80['test_id'])
+
+#Config pour 802.11ac 5Ghz - VHT40
+myconfig_vht40 = myconfig.copy()
+myconfig_vht40['channels'] = ['36','44','52','60','100','108','116','124','132','149','157']
+myconfig_vht40['htmode'] = "VHT40"
+myconfig_vht40['hwmode'] = "11ac"
+myconfig_vht40['test_id'] = "{0}_VHT40".format(myconfig_vht40['test_id'])
+
+#Config pour 802.11ac 5Ghz - VHT20
+myconfig_vht20 = myconfig.copy()
+myconfig_vht20['channels'] = ['36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157','161','165']
+myconfig_vht20['htmode'] = "VHT20"
+myconfig_vht20['hwmode'] = "11ac"
+myconfig_vht20['test_id'] = "{0}_VHT20".format(myconfig_vht20['test_id'])
+
+#--------------------------------------
+
+#Config pour Canaux 5Ghz - HT40+  (a + n) (Above)
+myconfig_ht40_5G = myconfig.copy()
+myconfig_ht40_5G['channels'] = ['36','44','52','60','100','108','116','124','132','149','157']
+myconfig_ht40_5G['hwmode'] = "11na" # a + n
+myconfig_ht40_5G['htmode'] = "HT40+"
+myconfig_ht40_5G['test_id'] = "{0}_HT40+_5G".format(myconfig_ht40_5G['test_id'])
+
+#Config pour Canaux 5Ghz - HT20
+myconfig_ht20_5G = myconfig.copy()
+myconfig_ht20_5G['channels'] = ['36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157','161','165']
+myconfig_ht20_5G['hwmode'] = "11na" # a + n
+myconfig_ht20_5G['htmode'] = "HT20"
+myconfig_ht20_5G['test_id'] = "{0}_HT20_5G".format(myconfig_ht20_5G['test_id'])
+
+#--------------------------------------
+
+#Config pour Canaux 2,4Ghz - HT40+  (g + n) (Above)
+myconfig_ht40 = myconfig.copy()
+myconfig_ht40['channels'] = ['1','2','3','4','5','6','7']
+myconfig_ht40['hwmode'] = "11no" # g + n
+myconfig_ht40['htmode'] = "HT40+"
+myconfig_ht40['test_id'] = "{0}_HT40+_24G".format(myconfig_ht40['test_id'])
+
+#Config pour Canaux 2,4Ghz - HT20
+myconfig_ht20 = myconfig.copy()
+myconfig_ht20['channels'] = ['1','2','3','4','5','6','7','8','9','10','11']
+myconfig_ht20['hwmode'] = "11no" # g + n
+myconfig_ht20['htmode'] = "HT20"
+myconfig_ht20['test_id'] = "{0}_HT20_24G".format(myconfig_ht20['test_id'])
+
+#--------------------------------------
+
+#Init du logger
 logger = logging.getLogger('main')
 logger.setLevel(logging.DEBUG)
 
@@ -47,7 +110,7 @@ class CandelaChannelTester():
 		#self.logger.info("Loop number {0}".format(i))
 
 		print("\n----Config-----")
-		for key, value in myconfig.items() :
+		for key, value in Config.items() :
         		print("{0} : {1}".format(key, value))
 		#Creating Json File
 		json_data = self.InitJson(Config)
@@ -130,20 +193,13 @@ class CandelaChannelTester():
 	                #TODO : Lancer le script monitoring dans le produit...
 				
 			ssh = check_ssh(Config['EUT'])
-			#Set channel et 802.11 config sur EUT
+			#Set channel et 802.11 config par rapport à la config loadée
 			print("Configuring EUT for channel {0}".format(channel))
-			if int(channel) < 15 :
-				self.logger.debug("Configuring EUT with Channel {0}".format(channel))
-				ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel="+ str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=11no ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=HT40+ ; uci commit ; apply_config")
-			elif int(channel) > 15 :
+			self.logger.debug("Configuring EUT with Channel {0}".format(channel))
 			#TODO : Change hwmode + htmode avec les entrees du form
-				self.logger.debug("Configuring EUT with Channel {0}".format(channel))
-				ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel=" + str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=11ac ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=VHT80 ; uci commit ; apply_config")
+			ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel="+ str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=" + Config['hwmode'] + " ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=" + Config['htmode'] + " ; uci commit ; apply_config")
+			#Sleep 8 : Wait network link up
 			time.sleep(8)
-			scp = SCPClient(ssh.get_transport()) 
-        	        scp.get('/usr/monitoring_v1/', '/tmp/candela_channel/monitoring/', recursive=True)
-			scp.close()
-
 			ssh.close()
 			
 			#Set channel et 802.11 config sur candela
@@ -233,7 +289,7 @@ class CandelaChannelTester():
 		else :
 			prot_list = [ Config['prot'] ]
 
-		sens_list = ['AP to Client', 'Client to AP']
+		sens_list = ['AP_vers_Client', 'Client_vers_AP']
 		channel_list = Config['channels']
 		
 
@@ -271,9 +327,8 @@ class CandelaChannelTester():
 		#Mise à jour du json
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
-			#TODO : Il faut créer une variable pour "mode" --> remplacer "ap" par cette variable.
-			#data[channel]['ap'][cx_prot][sens] = "In Progress"
-			#json.dump(data, f)
+			data[channel][cxmode][cx_prot][sens] = "In_Progress"
+			json.dump(data, f)
 		#Arret et suppression du GUI
 
 
@@ -328,13 +383,15 @@ class CandelaChannelTester():
 			logread = Get_SSH_Result(ssh, "logread |grep 'Data bus error'")
 			if logread:
 				time.sleep(1)
+				print("Error, Product crashed ('Data Bus error'), Rebooting and going to next test")
 				self.logger.error("Product crashed for channel {0} , test {1}, rebooting".format(channel, cand_id))
 				ssh.exec_command("reboot")
 				ssh.close()
+				telnet("stop_group " + cand_id)
 #TODO ------> Cette partie est à retirer^^^^^--------
 			else :
+				print("Error, the Cross Connect is Not Running, Rebooting and going to next test")
 				self.logger.error("Status not 'RUNNING' for channel {0}, test {1} , rebooting".format(channel , cand_id))
-				print("Error, the Cross Connect is Not Running, Rebbooting and going to next test")
 				ssh.exec_command("reboot")
 				ssh.close()
 				telnet("stop_group " + cand_id)
@@ -348,7 +405,7 @@ class CandelaChannelTester():
 		print("Running Script script.sh in EUT")
 		ssh.exec_command("rm /usr/monitoring_v1/DATA/*")
 		time.sleep(2)
-		print("Radio_Card : ",str(Config['wifi_card']))
+		#TODO : Voir pour driver parametre driver du script... 
 		ssh.exec_command("cd /usr/monitoring_v1 ; ./script.sh wlan{0} ath10k > /dev/null".format(str(Config['wifi_card'])))
 		time.sleep(2)
 		ssh.close()
@@ -362,7 +419,7 @@ class CandelaChannelTester():
 		test_timeout = time.time() +  len(Config['attn_list']) *  ( int(Config['attn_duration']) / 1000 ) 		
 		while time.time() < test_timeout :
 			#Afficher un compte à rebours sur la page Web...
-			print("Test en cours : " + cand_id + " " + channel + " " + str(time.time()))
+			print(str(time.time()) + ": Test en cours : " + Config['test_id'] + " - " + channel + " - " + cand_id )
 			time.sleep(1)
 			
 		#Récupération du fichier candela_report_attenuator Si besoin
@@ -388,31 +445,31 @@ class CandelaChannelTester():
 		#Lancement du script de récupération des DATAS de l'EUT
 		#TODO: Remplacer /tmp/candela... par le vrai PATH du script de recup. Voir si on peut pas copier directement le script à la racine de l'app...
 		scp = SCPClient(ssh.get_transport()) 
-		#TODO : Lancer le script monitoring dans le produit...
 		scp.get('/usr/monitoring_v1/DATA', '/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id + '/',  recursive=True)
 		scp.close()
 		ssh.close()
 		time.sleep(1)
-		#Deplacement de tus les fichiers du dossier DATA vers son dossier parent
+
+		#Deplacement de tous les fichiers du dossier DATA vers son dossier parent (Pour conformite avec macro excel)
 		data_files = os.listdir('/tmp/candela_channel/' + Config['test_id'] +     '/' + channel + '/' + cand_id + '/DATA')
 		for data_file in data_files :
 			shutil.move('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id + '/DATA/'+data_file, '/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id)
+
+		
 		shutil.rmtree('/tmp/candela_channel/' + Config['test_id'] + '/' + channel +     '/' + cand_id + '/DATA')
-		#sleep  : Pour être sur que le cross connect est bien arrété et qu'il ne recréera pas de fichier     après l'arrêt du reporting manager
-		#time.sleep(4)
-		telnet("report " + "/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report" + "NO") #TODO : Creer variable pour le chamin du gui
+		telnet("report " + "/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report" + "NO") #TODO : Creer variable pour le chemin du gui
 
-		#Update du fichier json avec le statut done pour le test fini
 
-		#Mise à jour du json
+		#Mise à jour du json, statut done
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
-			#TODO : Il faut créer une variable pour "mode" --> remplacer "ap" par cette variable.
-			#data[channel]['ap'][cx_prot][sens] = "Done"
-			#json.dump(data, f)
+			data[channel][cxmode][cx_prot][sens] = "Done"
+			json.dump(data, f)
 	
 
 		#COPIE DES FICHIERS DEPUIS DOSSIER GUI
+		#sleep 4  : Pour être sur que le cross connect est bien arrété et qu'il ne recréera pas de fichier     après l'arrêt du reporting manager
+		time.sleep(4)
 		#TODO : Remplacer /tmp/candela_channel par le vrai dossier de resultat
 		cand_report_files = os.listdir('/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report')
 		for f in cand_report_files:
@@ -429,7 +486,20 @@ class CandelaChannelTester():
 #	a = CandelaChannelTester(myconfig)
 #	i += 1
 #--------------------------------------
-a = CandelaChannelTester(myconfig)
+
+
+#if myconfig['HT20']:
+
+a = CandelaChannelTester(myconfig_ht20)
+a = CandelaChannelTester(myconfig_ht20_5G)
+
+#if myconfig['HT40']:
+
+a = CandelaChannelTester(myconfig_vht40)
+
+#if myconfig['HT80']:
+
+a = CandelaChannelTester(myconfig_vht80)
 
 
 #-----------------------------Ma LIB --------------------------------------
