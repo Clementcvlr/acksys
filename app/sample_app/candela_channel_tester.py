@@ -10,12 +10,11 @@ import logging
 
 myconfig ={}
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "9"
+myconfig['test_id'] = "12"
 myconfig['operator'] = "cc"
 myconfig['htmode'] = "VHT80"
 myconfig['wifi_card'] = "0"
-myconfig['channels'] = [ '1','3','5','7','9','11','36','52','56','60','100','104','108','112','116','120','124','128','149','165' ]
-#myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','52','56','60','100','104','108','112','116','120','124','128','149','165' ]
+myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','161','165' ]
 myconfig['attenuator'] = "39"
 myconfig['mode'] = "ap"
 myconfig['prot'] = "TCP"
@@ -37,7 +36,6 @@ class CandelaChannelTester():
 		#Creating Test dir
 		if not my_file.is_dir():
 			os.makedirs('/tmp/candela_channel/' + str(Config['test_id']))
-<<<<<<< HEAD
 
 		#Definition du logger pour ma classe et ajout d'un handler pour fichier de log
 		formatter = logging.Formatter('%(asctime)s - %(levelname)s : %(message)s')
@@ -46,17 +44,15 @@ class CandelaChannelTester():
 		fh.setFormatter(formatter)
 		fh.setLevel(logging.DEBUG)
 		self.logger.addHandler(fh)
-		self.logger.info("Loop number {0}".format(i))
+		#self.logger.info("Loop number {0}".format(i))
 
 		print("\n----Config-----")
 		for key, value in myconfig.items() :
         		print("{0} : {1}".format(key, value))
-=======
 		#Creating Json File
-		json_data = InitJson(Config)
-		with open("/tmp/candela_channel/" + str(Config['test_id'] + "/" + "logfile.log", 'w') as f :
+		json_data = self.InitJson(Config)
+		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
 			json.dump(json_data, f)
->>>>>>> 2196e70607774e50c7ba7f9a379c885f6992d6a4
 		#Arret et suppression du GUI
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report NO")
 		for f in os.listdir("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report"):
@@ -199,37 +195,6 @@ class CandelaChannelTester():
 		print("Loading Candela Conf :" + conf)
 		telnet("load " + conf + "OVERWRITE")
 		time.sleep(10)
-	def InitJson(Config):
-
-		if Config['mode'] == "BOTH":
-			mode_list = ['ap', 'client']
-		else :
-			mode_list = [ Config['mode'] ]
-		if Config['prot'] == "BOTH":
-			prot_list = ['UDP', 'TCP']
-		else :
-			prot_list = [ Config['prot'] ]
-
-		sens_list = ['AP to Client', 'Client to AP']
-		channel_list = Config['channels']
-
-
-		data = {}
-
-		for channel in channel_list:
-			data[channel] = {}
-			for mode in mode_list:
-				data[channel][mode] = {}
-				for prot in prot_list :
-					data[channel][mode][prot] = {}
-					for sens in sens_list:
-						data[channel][mode][prot][sens] = "to do"
-
-
-
-		data_json = json.dumps(data, indent=12)
-
-		return data_json
 
 	def create_folder(self, directory):
 		try:
@@ -257,7 +222,7 @@ class CandelaChannelTester():
 			#raise("No Match in Get_Endpoint_Status Fonction")
 
 	
-	def InitJson(Config):
+	def InitJson(self, Config):
 
 		if Config['mode'] == "BOTH":
 			mode_list = ['ap', 'client']
@@ -304,11 +269,11 @@ class CandelaChannelTester():
 		cx_prot = endpoint_sens[cand_id][2]
 
 		#Mise à jour du json
-		with open("/tmp/candela_channel/" + str(Config['test_id'] + "/" + "jsonfile.json", 'r+') as f :
+		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
 			#TODO : Il faut créer une variable pour "mode" --> remplacer "ap" par cette variable.
-			data[channel]['ap'][cx_prot][sens] = "In Progress"
-			json.dump(data, f)
+			#data[channel]['ap'][cx_prot][sens] = "In Progress"
+			#json.dump(data, f)
 		#Arret et suppression du GUI
 
 
@@ -364,13 +329,13 @@ class CandelaChannelTester():
 			if logread:
 				time.sleep(1)
 				self.logger.error("Product crashed for channel {0} , test {1}, rebooting".format(channel, cand_id))
-				ssh.exec_session("reboot")
+				ssh.exec_command("reboot")
 				ssh.close()
 #TODO ------> Cette partie est à retirer^^^^^--------
 			else :
 				self.logger.error("Status not 'RUNNING' for channel {0}, test {1} , rebooting".format(channel , cand_id))
 				print("Error, the Cross Connect is Not Running, Rebbooting and going to next test")
-				ssh.exec_session("reboot")
+				ssh.exec_command("reboot")
 				ssh.close()
 				telnet("stop_group " + cand_id)
 				return
@@ -440,11 +405,11 @@ class CandelaChannelTester():
 		#Update du fichier json avec le statut done pour le test fini
 
 		#Mise à jour du json
-		with open("/tmp/candela_channel/" + str(Config['test_id'] + "/" + "jsonfile.json", 'r+') as f :
+		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
 			data = json.load(f)
 			#TODO : Il faut créer une variable pour "mode" --> remplacer "ap" par cette variable.
-			data[channel]['ap'][cx_prot][sens] = "Done"
-			json.dump(data, f)
+			#data[channel]['ap'][cx_prot][sens] = "Done"
+			#json.dump(data, f)
 	
 
 		#COPIE DES FICHIERS DEPUIS DOSSIER GUI
@@ -457,12 +422,15 @@ class CandelaChannelTester():
 
 
 
+#-----------Looping this test----------
+#i = 1
+#while True :
+#	print("Loop number {0}".format(i))
+#	a = CandelaChannelTester(myconfig)
+#	i += 1
+#--------------------------------------
+a = CandelaChannelTester(myconfig)
 
-i = 1
-while True :
-	print("Loop number {0}".format(i))
-	a = CandelaChannelTester(myconfig)
-	i += 1
 
 #-----------------------------Ma LIB --------------------------------------
 #-------COPIER FICHIER---------
