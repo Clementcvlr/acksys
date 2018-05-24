@@ -16,7 +16,7 @@ myconfig['HT20'] = True
 myconfig['HT40'] = True
 myconfig['HT80'] = True
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "21"
+myconfig['test_id'] = "26"
 myconfig['operator'] = "cc"
 myconfig['htmode'] = "HT20"
 myconfig['wifi_card'] = "0"
@@ -28,13 +28,13 @@ myconfig['tid_ap'] = "TID_1-1-1-3"
 myconfig['tid_client'] = "TID_1-1-2-3"
 myconfig['tx_power'] = "10"
 myconfig['reboot'] = False
-#myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
-myconfig['attn_list'] = ['200']
-myconfig['attn_duration'] = "3000"
+myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
+myconfig['attn_duration'] = "30000"
 
 
 #Config pour 802.11ac 5Ghz - VHT80
 myconfig_vht80 = myconfig.copy()
+#Ne pas modifier la liste suivante:
 myconfig_vht80['channels'] = ['36','52','100','116','149']
 myconfig_vht80['htmode'] = "VHT80"
 myconfig_vht80['hwmode'] = "11ac"
@@ -42,6 +42,7 @@ myconfig_vht80['test_id'] = "{0}_VHT80".format(myconfig_vht80['test_id'])
 
 #Config pour 802.11ac 5Ghz - VHT40
 myconfig_vht40 = myconfig.copy()
+#Ne pas modifier la liste suivante:
 myconfig_vht40['channels'] = ['36','44','52','60','100','108','116','124','132','149','157']
 myconfig_vht40['htmode'] = "VHT40"
 myconfig_vht40['hwmode'] = "11ac"
@@ -49,6 +50,7 @@ myconfig_vht40['test_id'] = "{0}_VHT40".format(myconfig_vht40['test_id'])
 
 #Config pour 802.11ac 5Ghz - VHT20
 myconfig_vht20 = myconfig.copy()
+#Ne pas modifier la liste suivante:
 myconfig_vht20['channels'] = ['36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157','161','165']
 myconfig_vht20['htmode'] = "VHT20"
 myconfig_vht20['hwmode'] = "11ac"
@@ -65,6 +67,7 @@ myconfig_ht40_5G['test_id'] = "{0}_HT40+_5G".format(myconfig_ht40_5G['test_id'])
 
 #Config pour Canaux 5Ghz - HT20
 myconfig_ht20_5G = myconfig.copy()
+#Ne pas modifier la liste suivante:
 myconfig_ht20_5G['channels'] = ['36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157','161','165']
 myconfig_ht20_5G['hwmode'] = "11na" # a + n
 myconfig_ht20_5G['htmode'] = "HT20"
@@ -95,8 +98,8 @@ logger.setLevel(logging.DEBUG)
 
 class CandelaChannelTester():
 	def __init__(self, Config):
-		my_file = Path("/tmp/candela_channel/" + str(Config['test_id']))
 		#Creating Test dir
+		my_file = Path("/tmp/candela_channel/" + str(Config['test_id']))
 		if not my_file.is_dir():
 			os.makedirs('/tmp/candela_channel/' + str(Config['test_id']))
 
@@ -109,9 +112,16 @@ class CandelaChannelTester():
 		self.logger.addHandler(fh)
 		#self.logger.info("Loop number {0}".format(i))
 
+		#Show Config
 		print("\n----Config-----")
 		for key, value in Config.items() :
         		print("{0} : {1}".format(key, value))
+
+		#Estimation de la duree du test
+		end_of_test = Estimated_duration(Config)
+		print("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
+		self.logger.info("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
+
 		#Creating Json File
 		json_str = self.InitJson(Config)
 		json_data = json.loads(json_str)
@@ -237,7 +247,18 @@ class CandelaChannelTester():
 
 
 ############################################################################
-
+	def Estimated_duration(Config):
+		#Retourne la duee approximative du test en secondes ainsi que l'heure de fin associée
+		dfs_channel_list = ["52","56","60","64","100","104","108","112","116","120","124","128","132","136","140"]
+		dfs_chan_to_test_nb = 0 
+		for channel in Config['channels']:
+			if channel in dfs_channel_list:
+				dfs_chan_to_test_nb += 1
+		each_test_duration = (len(Config['attn_list']) *  ( int(Config['attn_duration']) / 1000 ))  
+		print((each_test_duration * 45), len(Config['channels']), ( 60 * dfs_chan_to_test_nb ))
+		estimated_duration = (((each_test_duration + 45) * 2 ) * len(Config['channels'])) + ( 60 * dfs_chan_to_test_nb )
+		end_of_test = time.ctime(time.time() + estimated_duration)
+		return estimated_duration, end_of_test	
 
 	def Get_Var_From_Form():
 		#Mettre ChannelTesterForm(csrf_enabled=False) en paramètre au moment de l'appel
@@ -334,10 +355,6 @@ class CandelaChannelTester():
 			f.truncate()
 		#Arret et suppression du GUI
 
-
-
-		#Open SSH Session	
-		#ssh_session = check_ssh(Config['EUT'])
 		
 		#On reboot l'EUT si requis par le formulaire (Reboot_request est un boolean)
 		if Config['reboot'] :
@@ -354,9 +371,8 @@ class CandelaChannelTester():
 		for f in os.listdir("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report"):
                         os.remove("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f)
 
-
 		#Demarrage du reporting manager
-		self.logger.debug("Starting reporting...")
+		self.logger.debug("Starting reporting manager")
 		print("Starting reporting...")
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report YES YES YES YES")
 		time.sleep(4)
@@ -376,7 +392,7 @@ class CandelaChannelTester():
 		#Tant que endpoint status est différent de "RUNNING" et que time < timeout (90s)
 		timeout = time.time() + 90
 		while str(self.Get_Endpoint_Status(endpoint + "-B")) != "RUNNING" and time.time() <  timeout :
-			print("Cross Connect is {0}".format(self.Get_Endpoint_Status(endpoint + "-B")))
+			print("{0}: Cross Connect is {1}".format(time.strftime("%H:%M:%S"), self.Get_Endpoint_Status(endpoint + "-B")))
 			time.sleep(0.5)
 
 		#On quitte la fonction si le statut du cx n'est toujours pas "RUNNING" après le timeout de la boucle ci-dessus
@@ -391,6 +407,8 @@ class CandelaChannelTester():
 				ssh.exec_command("reboot")
 				ssh.close()
 				telnet("stop_group " + cand_id)
+				Ping(Config["EUT"])
+				time.sleep(70)
 #TODO ------> Cette partie est à retirer^^^^^--------
 			else :
 				print("Error, the Cross Connect is Not Running, Rebooting and going to next test")
@@ -398,6 +416,8 @@ class CandelaChannelTester():
 				ssh.exec_command("reboot")
 				ssh.close()
 				telnet("stop_group " + cand_id)
+				Ping(Config["EUT"])
+				time.sleep(70)
 				return
 				
 		else :
@@ -422,7 +442,7 @@ class CandelaChannelTester():
 		test_timeout = time.time() +  len(Config['attn_list']) *  ( int(Config['attn_duration']) / 1000 ) 		
 		while time.time() < test_timeout :
 			#Afficher un compte à rebours sur la page Web...
-			print(str(time.time()) + ": Test en cours : " + Config['test_id'] + " - " + channel + " - " + cand_id )
+			print(time.strftime("%H:%M:%S") + ": Test en cours : " + Config['test_id'] + " - " + channel + " - " + cand_id )
 			time.sleep(1)
 			
 		#Récupération du fichier candela_report_attenuator Si besoin
@@ -496,16 +516,17 @@ class CandelaChannelTester():
 
 #if myconfig['HT20']:
 
-a = CandelaChannelTester(myconfig_ht20)
-a = CandelaChannelTester(myconfig_ht20_5G)
+#a = CandelaChannelTester(myconfig_ht20)
+#a = CandelaChannelTester(myconfig_ht20_5G)
 
 #if myconfig['HT40']:
 
-a = CandelaChannelTester(myconfig_vht40)
+#a = CandelaChannelTester(myconfig_vht20)
 
 #if myconfig['HT80']:
 
 a = CandelaChannelTester(myconfig_vht80)
+a = CandelaChannelTester(myconfig_vht40)
 
 
 #-----------------------------Ma LIB --------------------------------------
