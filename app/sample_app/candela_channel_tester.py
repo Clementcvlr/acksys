@@ -16,7 +16,7 @@ myconfig['HT20'] = True
 myconfig['HT40'] = True
 myconfig['HT80'] = True
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "26"
+myconfig['test_id'] = "31"
 myconfig['operator'] = "cc"
 myconfig['htmode'] = "HT20"
 myconfig['wifi_card'] = "0"
@@ -29,8 +29,9 @@ myconfig['tid_client'] = "TID_1-1-2-3"
 myconfig['tx_power'] = "10"
 myconfig['reboot'] = False
 myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
-myconfig['attn_duration'] = "30000"
+myconfig['attn_duration'] = "60000"
 
+#--------Configs template pour tester différents modes (HT20, HT40, VHT40, VHT80...)---
 
 #Config pour 802.11ac 5Ghz - VHT80
 myconfig_vht80 = myconfig.copy()
@@ -60,6 +61,7 @@ myconfig_vht20['test_id'] = "{0}_VHT20".format(myconfig_vht20['test_id'])
 
 #Config pour Canaux 5Ghz - HT40+  (a + n) (Above)
 myconfig_ht40_5G = myconfig.copy()
+#Ne pas modifier la liste suivante:
 myconfig_ht40_5G['channels'] = ['36','44','52','60','100','108','116','124','132','149','157']
 myconfig_ht40_5G['hwmode'] = "11na" # a + n
 myconfig_ht40_5G['htmode'] = "HT40+"
@@ -118,7 +120,7 @@ class CandelaChannelTester():
         		print("{0} : {1}".format(key, value))
 
 		#Estimation de la duree du test
-		end_of_test = Estimated_duration(Config)
+		end_of_test = self.Estimated_duration(Config)
 		print("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
 		self.logger.info("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
 
@@ -247,7 +249,7 @@ class CandelaChannelTester():
 
 
 ############################################################################
-	def Estimated_duration(Config):
+	def Estimated_duration(self, Config):
 		#Retourne la duee approximative du test en secondes ainsi que l'heure de fin associée
 		dfs_channel_list = ["52","56","60","64","100","104","108","112","116","120","124","128","132","136","140"]
 		dfs_chan_to_test_nb = 0 
@@ -516,17 +518,18 @@ class CandelaChannelTester():
 
 #if myconfig['HT20']:
 
-#a = CandelaChannelTester(myconfig_ht20)
-#a = CandelaChannelTester(myconfig_ht20_5G)
 
 #if myconfig['HT40']:
 
-#a = CandelaChannelTester(myconfig_vht20)
-
 #if myconfig['HT80']:
+
 
 a = CandelaChannelTester(myconfig_vht80)
 a = CandelaChannelTester(myconfig_vht40)
+a = CandelaChannelTester(myconfig_vht20)
+
+a = CandelaChannelTester(myconfig_ht20)
+a = CandelaChannelTester(myconfig_ht20_5G)
 
 
 #-----------------------------Ma LIB --------------------------------------
