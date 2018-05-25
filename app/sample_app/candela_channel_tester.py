@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 # -*- coding: utf-8 -*-
+
 import telnetlib, re, time, select, os, sys, errno, paramiko, subprocess
 from time import sleep
-import shutil, json
+import shutil, json, logging, textwrapper
 from acksys_func import Ping, Get_SSH_Result, check_ssh, telnet
 from scp import SCPClient
 from pathlib2 import Path
-import logging
 
 #Init de la config. A terme, cela sera récupéré par l'interface web
 myconfig ={}
@@ -114,10 +114,11 @@ class CandelaChannelTester():
 		self.logger.addHandler(fh)
 		#self.logger.info("Loop number {0}".format(i))
 
-		#Show Config
+		#Show Config and print to file
 		print("\n----Config-----")
 		for key, value in Config.items() :
         		print("{0} : {1}".format(key, value))
+		self.print_conf(Config, "/tmp/candela_channel/" + str(Config['test_id']) + "/config.txt")
 
 		#Estimation de la duree du test
 		end_of_test = self.Estimated_duration(Config)
@@ -129,6 +130,7 @@ class CandelaChannelTester():
 		json_data = json.loads(json_str)
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
 			json.dump(json_data, f)
+
 		#Arret et suppression du GUI
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report NO")
 		for f in os.listdir("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report"):
@@ -249,8 +251,9 @@ class CandelaChannelTester():
 
 
 ############################################################################
+
+	#Retourne la duee approximative du test en secondes ainsi que l'heure de fin associée
 	def Estimated_duration(self, Config):
-		#Retourne la duee approximative du test en secondes ainsi que l'heure de fin associée
 		dfs_channel_list = ["52","56","60","64","100","104","108","112","116","120","124","128","132","136","140"]
 		dfs_chan_to_test_nb = 0 
 		for channel in Config['channels']:
@@ -262,20 +265,37 @@ class CandelaChannelTester():
 		end_of_test = time.ctime(time.time() + estimated_duration)
 		return estimated_duration, end_of_test	
 
+	#Print la config dans un fichier conf_file et sur la sortie standard
+	#Utilise textwrap pour une belle indentation de la conf
+	#Modifier max_key_len et preferredWidth=60 si besoin
+	def print_conf(self, Config, conf_file, max_key_len = 17, preferredWidth=60):
+		self.logger.info("Writing Test Configuration to {0}".format(conf_file))
+
+		with open(conf_file, 'w') as f:
+
+			for key, value in Config.iteritems():
+
+				nice_space = " " * (max_key_len - len(key))
+				wrapper = textwrap.TextWrapper(initial_indent=key + nice_space + ":   ", width=preferredWidth,subsequent_indent=' '*len(key + nice_space + " "))
+				f.write(wrapper.fill(str(value)) + "\n")
+				print(wrapper.fill(str(value)))
+
+	#Pas encore utilisée...
 	def Get_Var_From_Form():
 		#Mettre ChannelTesterForm(csrf_enabled=False) en paramètre au moment de l'appel
 		form = form
 		if form.is_submitted:
 			print("a")	
 
-	#Envoie une commande telnet telnet et retourne la sortie standard de la commande
-#Charge la configuration "conf" (exemple : "TID_1-1-1-3"). Attend 10 secondes pour que la conf soit chargée
+	#Charge la configuration "conf" (exemple : "TID_1-1-1-3"). Attend 10 secondes pour que la conf soit chargée
 	def load_config(conf):
 		self.logger.debug("Loading Candela Conf :" + conf)
-		print("Loading Candela Conf :" + conf)
+		print("Loading Candela Conf : " + conf)
 		telnet("load " + conf + "OVERWRITE")
 		time.sleep(10)
 
+
+	#Creer un dossier
 	def create_folder(self, directory):
 		try:
 			self.logger.debug("Creating Directory : {0}".format( directory))
@@ -288,20 +308,18 @@ class CandelaChannelTester():
 			if e.errno == errno.EEXIST:
 				self.logger.debug("Folder {0} already exists".format(directory))	
 				print("Folder {0} already exists".format(directory))
-	#		else :
-	#			raise("Error while creating folder")
+	
 
+	#Recupère le résultat de la commande show_endpoints du candela
+	#Verifie le status grace à un regex sur ce résultat
 	def Get_Endpoint_Status(self, Endpoint):
-
 
 		status = re.findall(r'.*Endpoint \[.+\] \(([A-Z_]+)', str(telnet("show_endpoints " + Endpoint)))
 
 		if status :
 			return status[0]
-		#else :
-			#raise("No Match in Get_Endpoint_Status Fonction")
 
-	
+	#Permet d'initier le contenu du fichier json	
 	def InitJson(self, Config):
 
 		if Config['mode'] == "BOTH":
@@ -334,7 +352,7 @@ class CandelaChannelTester():
 		return data_json
 				
 
-
+	#Fonction prinicipale de test
 	def Start(self, Config, cand_id, cxmode, channel):
 
 		#Definition du sens et du Endpoint en fonction du test en cours (901, 902, 903 ou 904)
@@ -383,7 +401,8 @@ class CandelaChannelTester():
 		self.logger.debug("Setting Attenuator {0}".format(Config['attenuator']))
 		print("Setting Attenuator {0}".format(Config['attenuator']))
 		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all 400")
-		#print("Starting Attenuators...")
+
+		#sleep 4 : Pour pallier à l'erreur telnet
 		time.sleep(4)
 		
 		#Demarrage du Cross Connect
@@ -399,7 +418,7 @@ class CandelaChannelTester():
 
 		#On quitte la fonction si le statut du cx n'est toujours pas "RUNNING" après le timeout de la boucle ci-dessus
 		if self.Get_Endpoint_Status(endpoint + "-B") != "RUNNING":
-#TODO ------> Cette partie est à retirer------------
+#TODO ------> vvvv Specifique au bug Data Bus Error sur Railtrack vvvvv------------
 			ssh = check_ssh(Config['EUT'])
 			logread = Get_SSH_Result(ssh, "logread |grep 'Data bus error'")
 			if logread:
@@ -411,7 +430,8 @@ class CandelaChannelTester():
 				telnet("stop_group " + cand_id)
 				Ping(Config["EUT"])
 				time.sleep(70)
-#TODO ------> Cette partie est à retirer^^^^^--------
+#TODO ------> ^^^^^^ Cette partie est à retirer ^^^^^--------
+
 			else :
 				print("Error, the Cross Connect is Not Running, Rebooting and going to next test")
 				self.logger.error("Status not 'RUNNING' for channel {0}, test {1} , rebooting".format(channel , cand_id))
@@ -425,6 +445,7 @@ class CandelaChannelTester():
 		else :
 			
 			self.logger.info("Test {0} - Channel {1} is Running".format(cand_id, channel))
+
 		#Running script monitoring v1
 		ssh = check_ssh(Config['EUT'])
 		print("Running Script script.sh in EUT")
@@ -492,10 +513,9 @@ class CandelaChannelTester():
 			f.seek(0)
 			json.dump(data, f)
 			f.truncate()
-			
 	
 
-		#COPIE DES FICHIERS DEPUIS DOSSIER GUI
+		#Copie des fichiers depuis dossier GUI
 		#sleep 4  : Pour être sur que le cross connect est bien arrété et qu'il ne recréera pas de fichier     après l'arrêt du reporting manager
 		time.sleep(4)
 		#TODO : Remplacer /tmp/candela_channel par le vrai dossier de resultat
@@ -515,9 +535,7 @@ class CandelaChannelTester():
 #	i += 1
 #--------------------------------------
 
-
 #if myconfig['HT20']:
-
 
 #if myconfig['HT40']:
 
