@@ -7,18 +7,16 @@ import shutil, json, logging, textwrapper
 from acksys_func import Ping, Get_SSH_Result, check_ssh, telnet
 from scp import SCPClient
 from pathlib2 import Path
+from conf_template_updater import ConfUpdater
 
 #Init de la config. A terme, cela sera récupéré par l'interface web
 myconfig ={}
 #TODO : Dans le form, ajouter 3 booleans a cocher pour chaque htmode que l'on souhaite tester
 #Ou un selectfield multiple
-myconfig['HT20'] = True
-myconfig['HT40'] = True
-myconfig['HT80'] = True
 myconfig['EUT'] = "192.168.100.20"
 myconfig['test_id'] = "31"
 myconfig['operator'] = "cc"
-myconfig['htmode'] = "HT20"
+myconfig['htmodes'] = ["vht80","vht40","vht20","ht40+_5Ghz","ht20_5Ghz","ht40+_24Ghz","ht20_24Ghz"]
 myconfig['wifi_card'] = "0"
 myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157''161','165' ]
 myconfig['attenuator'] = "39"
@@ -30,6 +28,8 @@ myconfig['tx_power'] = "10"
 myconfig['reboot'] = False
 myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
 myconfig['attn_duration'] = "60000"
+myconfig['countries'] = ['US']
+
 
 #--------Configs template pour tester différents modes (HT20, HT40, VHT40, VHT80...)---
 
@@ -524,7 +524,10 @@ class CandelaChannelTester():
 			shutil.move("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f, "/tmp/candela_channel/" + str(Config['test_id']) + "/" + channel +"/" + cand_id + "/")
 	
 
-
+for country in countries :
+	for ht_mode in htmodes :
+		new_conf = ConfUpdater(myconfig, htmode, country).get_conf()
+		a = CandelaChannelTester(new_conf)
 
 
 #-----------Looping this test----------
@@ -535,20 +538,14 @@ class CandelaChannelTester():
 #	i += 1
 #--------------------------------------
 
-#if myconfig['HT20']:
-
-#if myconfig['HT40']:
-
-#if myconfig['HT80']:
-
-
+'''
 a = CandelaChannelTester(myconfig_vht80)
 a = CandelaChannelTester(myconfig_vht40)
 a = CandelaChannelTester(myconfig_vht20)
 
 a = CandelaChannelTester(myconfig_ht20)
-a = CandelaChannelTester(myconfig_ht20_5G)
-
+a a CandelaChannelTester(myconfig_ht20_5G)
+'''
 
 #-----------------------------Ma LIB --------------------------------------
 #-------COPIER FICHIER---------
