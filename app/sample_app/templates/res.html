@@ -13,23 +13,23 @@
 		
             </tr>
             <tr>
-		{% for n in Config['channels'] %}
-                <td rowspan={{ Config['prot']|length * 2 }} > {{ n }}</td>
+		{% for key in json_data.keys() %}
+                <td rowspan={{ Config['prot']|length * 2 }} > {{ key }}</td>
 		{% for prot in Config['prot'] %} 
                 <td rowspan=2>{{ prot }} </td>
-		<td>{{ Config['sens'][0] }}
-               	{% if json_data['12']['UDP']["ClienttoAP"] == "Done" %}
+		<td>{{AP_vers_client}}
+               	{% if json_data["100"]['AP']["TCP"]["AP_vers_Client"] == "Done" %}
                 <td><img src="/static/img/done.png" alt="" height=20 width=20></img></th>
-		{% elif json_data['12']['UDP']["ClienttoAP"] == "In Progress" %}
+		{% elif json_data["100"]['AP']["TCP"]["Client_vers_AP"] == "In Progress" %}
                 <td><img src="/static/img/in_progress.png" alt="" height=20 width=20></img></th>
 		
 		{% endif %}
 	    </tr>
 	    <tr>
-                <td>{{ Config['sens'][1] }}
-		{% if json_data['12']['UDP']["ClienttoAP"] == "Done" %}
+                <td>{{Client_vers_AP}}
+		{% if json_data['100']['AP']['TCP']["Client_vers_AP"] == "Done" %}
                 <td><img src="/static/img/done.png" alt="" height=20 width=20></img></th>
-		{% elif json_data['12']['UDP']["ClienttoAP"] == "In Progress" %}
+		{% elif json_data['100']['AP']['TCP']["Client_vers_AP"] == "In Progress" %}
                 <td><img src="/static/img/in_progress.png" alt="" height=20 width=20></img></th>
 		
 		{% endif %}

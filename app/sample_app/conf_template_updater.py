@@ -43,6 +43,7 @@ class ConfUpdater():
 		ht_dict['ht40+_24Ghz'] = ["11no", "HT40+"]
 		ht_dict['ht20_24Ghz']  = ["11no", "HT20" ]
 
+		print(self.htmode)
 		self.my_new_config['hwmode'] = ht_dict[self.htmode][0]
 		self.my_new_config['htmode'] = ht_dict[self.htmode][1]
 

@@ -3,21 +3,22 @@
 
 import telnetlib, re, time, select, os, sys, errno, paramiko, subprocess
 from time import sleep
-import shutil, json, logging, textwrapper
+import shutil, json, logging, textwrap
 from acksys_func import Ping, Get_SSH_Result, check_ssh, telnet
 from scp import SCPClient
 from pathlib2 import Path
 from conf_template_updater import ConfUpdater
+import threading
 
 #Init de la config. A terme, cela sera récupéré par l'interface web
 myconfig ={}
 #TODO : Dans le form, ajouter 3 booleans a cocher pour chaque htmode que l'on souhaite tester
 #Ou un selectfield multiple
 myconfig['EUT'] = "192.168.100.20"
-myconfig['test_id'] = "31"
+myconfig['test_id'] = "33"
 myconfig['operator'] = "cc"
 myconfig['htmodes'] = ["vht80","vht40","vht20","ht40+_5Ghz","ht20_5Ghz","ht40+_24Ghz","ht20_24Ghz"]
-myconfig['wifi_card'] = "0"
+myconfig['wifi_card'] = "1"
 myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157''161','165' ]
 myconfig['attenuator'] = "39"
 myconfig['mode'] = "ap"
@@ -113,23 +114,27 @@ class CandelaChannelTester():
 		fh.setLevel(logging.DEBUG)
 		self.logger.addHandler(fh)
 		#self.logger.info("Loop number {0}".format(i))
+		self.Config = Config
 
+	def run(self):
 		#Show Config and print to file
+		Config = self.Config
 		print("\n----Config-----")
 		for key, value in Config.items() :
         		print("{0} : {1}".format(key, value))
 		self.print_conf(Config, "/tmp/candela_channel/" + str(Config['test_id']) + "/config.txt")
-
-		#Estimation de la duree du test
-		end_of_test = self.Estimated_duration(Config)
-		print("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
-		self.logger.info("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
 
 		#Creating Json File
 		json_str = self.InitJson(Config)
 		json_data = json.loads(json_str)
 		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
 			json.dump(json_data, f)
+
+		#Estimation de la duree du test
+		end_of_test = self.Estimated_duration(Config)
+		print("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
+		self.logger.info("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
+
 
 		#Arret et suppression du GUI
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report NO")
@@ -138,14 +143,17 @@ class CandelaChannelTester():
 
 		
 		#Wait For Ping
+		print("Begin Ping")
 		Ping(Config['EUT'])
+		print("Ping is Ok")
 
 		ssh = check_ssh(Config['EUT'], 'root')
 
 		#Copie script Monitoring (Equivalent au script d'implantation monitoring_v1)
 		ssh.exec_command("mkdir -p /usr/monitoring_v1/DATA")
 		scp = SCPClient(ssh.get_transport()) 
-		scp.put("script.sh", "/usr/monitoring_v1/script.sh")
+		#TODO : Change path of the following script file
+		scp.put("/home/chevalier/acksys_test_base/app/sample_app/script.sh", "/usr/monitoring_v1/script.sh")
 
 		#Config Initiale de l'EUT (enable radio card, setting mode, SSID..)
 		self.logger.debug("Config de l'EUT par uci")
@@ -249,6 +257,11 @@ class CandelaChannelTester():
 				
 				self.logger.debug("End of instance")
 
+	def background_launcher(self):
+		run_thread = threading.Thread(target=self.run)
+    		run_thread.start()
+
+
 
 ############################################################################
 
@@ -309,13 +322,17 @@ class CandelaChannelTester():
 				self.logger.debug("Folder {0} already exists".format(directory))	
 				print("Folder {0} already exists".format(directory))
 	
+	#Get Candela lanforge server version
+	def get_lf_version(self):
+		lfversion = re.findall(r'.* Version: ([a-z0-9._-]+) ' , str(telnet("version")))
+		if lfversion :
+			return lf_version
+
 
 	#Recupère le résultat de la commande show_endpoints du candela
 	#Verifie le status grace à un regex sur ce résultat
 	def Get_Endpoint_Status(self, Endpoint):
-
 		status = re.findall(r'.*Endpoint \[.+\] \(([A-Z_]+)', str(telnet("show_endpoints " + Endpoint)))
-
 		if status :
 			return status[0]
 
@@ -350,7 +367,6 @@ class CandelaChannelTester():
 
 		data_json = json.dumps(data, indent=12)
 		return data_json
-				
 
 	#Fonction prinicipale de test
 	def Start(self, Config, cand_id, cxmode, channel):
@@ -522,13 +538,14 @@ class CandelaChannelTester():
 		cand_report_files = os.listdir('/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report')
 		for f in cand_report_files:
 			shutil.move("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f, "/tmp/candela_channel/" + str(Config['test_id']) + "/" + channel +"/" + cand_id + "/")
-	
-
-for country in countries :
-	for ht_mode in htmodes :
+'''	
+for country in myconfig['countries'] :
+	for htmode in myconfig['htmodes'] :
 		new_conf = ConfUpdater(myconfig, htmode, country).get_conf()
 		a = CandelaChannelTester(new_conf)
-
+		a.background_launcher()
+'''		
+print("ICCCCIII")
 
 #-----------Looping this test----------
 #i = 1

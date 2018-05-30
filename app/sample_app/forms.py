@@ -20,7 +20,8 @@ class ChannelTesterForm(FlaskForm):
     channels = SelectMultipleField(choices = channels_list, coerce = str, default = ['149'])
     attenuator = SelectField(u'Attenuator', coerce = str, choices=[('39', '39'), ('46', '46'), ('47', '47')], default='46')
     mode = SelectField(u'Mode ', coerce = str, choices=[('AP', 'Access Point'), ('Client', 'Client')], default='AP')
-    prot = SelectField(u'Protocole ', coerce = str, choices=[('TCP', 'TCP'), ('UDP', 'UDP'), ('Both', 'Both')], default='Both')
+    prot = SelectField(u'Protocole ', coerce = str, choices=[('TCP', 'TCP'), ('UDP', 'UDP'), ('Both', 'Both')], default='TCP')
+    prot = SelectMultipleField(choices = [('TCP', 'TCP'), ('UDP','UDP')], coerce = str, default = ['TCP'])
     attn_list = SelectMultipleField(u'Attnuation Steps', choices = [('150', '150'), ('200', '200'), ('250', '250'), ('300', '300'), ('350', '350'), ('400', '400'), ('450', '450'), ('500', '500'), ('550', '550'), ('600', '600'), ('650', '650'), ('700', '700'), ('750', '750'), ('800', '800'), ('850', '850')], coerce = str, default = ['350'])
     attn_duration = IntegerField(u'Attenuator step duration (s)', default='300')
     

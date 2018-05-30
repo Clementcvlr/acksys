@@ -13,8 +13,8 @@ from markupsafe import escape
 import dominate
 from dominate.tags import img
 import json
-import datetime
-import os
+import datetime, time
+import os, ast
 
 #from .forms import ChannelTesterForm
 from .forms import PerfTesterForm, LoginForm, RegisterForm, ChannelTesterForm
@@ -25,7 +25,8 @@ from .table import *
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_user import UserManager, current_user,roles_required, login_required
 from .users import User, UserRoles, Role, db
-#from .candela_channel_tester import CandelaChannelTester
+import candela_channel_tester 
+from conf_template_updater import ConfUpdater
 
 #TODO: Delete this test lines :
 #from .arm import Arm
@@ -111,7 +112,7 @@ def Channel_Tester():
 	Config['channels'] = form.channels.data
 	Config['attenuator'] = request.form['attenuator']
 	Config['mode'] = request.form['mode']
-	Config['prot'] = request.form['prot']
+	Config['prot'] = form.prot.data
 	Config['tid_ap'] = request.form['tid_ap']
 	Config['tid_client'] = request.form['tid_client']
 	Config['tx_power'] = request.form['tx_power']
@@ -120,7 +121,8 @@ def Channel_Tester():
 	Config['attn_duration'] = request.form['attn_duration']
 	print Config
 	print("CC", Config['EUT'])
-	a = CandelaChannelTester(Config)
+	#a = candela_channel_tester.CandelaChannelTester(Config)
+	#a.background_launcher()
 
 	EUT = request.form['EUT']
 	operator = request.form['operator']
@@ -153,7 +155,9 @@ def Channel_Tester():
 
 
         # In a real application, you may wish to avoid this tedious redirect.
-        return render_template('res.html', Config=Config)
+        #return render_template('res.html', Config=Config)
+	print("Before Redirect", type(Config))
+	return redirect(url_for('.Res_Table', Config=Config))
 	#render_template('channel_tester.html', test=test)
     else:
     	flash('Error in the signup Form', 'error')
@@ -228,18 +232,30 @@ def logout():
 
 
 @frontend.route('/Results/', methods=('GET', 'POST'))
-@roles_required('Admin')
+#@roles_required('Admin')
 def Res_Table():
 	# import things
-	Config ={}
-	Config['prot'] = ['TCP', 'UDP']
-	Config['sens'] = ['APtoClient', 'ClienttoAP'] 
-	Config['channels'] = ['1','2','3','4','5','6','7','8','9','10','11','12','13','100','112']
+#	Config ={}
+#	Config['prot'] = ['TCP', 'UDP']
+#	Config['sens'] = ['APtoClient', 'ClienttoAP'] 
+#	Config['channels'] = ['1','2','3','4','5','6','7','8','9','10','11','12','13','100','112']
+
+	Config = request.args["Config"]
+	print(Config)
+	print("Error ici")
+	print(type(Config))
+	Config = ast.literal_eval(Config)
+	Config['countries'] = ["US"]
+	Config['htmodes'] = ["vht80"]
+	new_conf = ConfUpdater(Config, Config['htmodes'][0], Config['countries'][0]).get_conf()
+	a = candela_channel_tester.CandelaChannelTester(new_conf)
+	a.background_launcher()
+
 	items = []
 	#for key, value in Config.iteritems() :
 
 		#items.append(Item(key, value))
-
+	print("Dans la page Res")
 	print(type(items))
 	# Populate the table
 	#table = ItemTable(items, classes=["table", "table-striped", "table-hover"])
@@ -250,8 +266,8 @@ def Res_Table():
 	#	print(f)
 	#for f in os.listdir('./sample_app/static/'):
 	#	print(f)
-
-	with open("./sample_app/static/arm_myjson.json", 'r+') as f:
+	time.sleep(5)
+	with open("/tmp/candela_channel/34_vht80_US/jsonfile.json", 'r+') as f:
         	json_data = json.loads(f.read())
 		#print(json_data['channel']['TCP']['APtoClient'])
 	 
