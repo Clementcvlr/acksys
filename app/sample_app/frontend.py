@@ -15,6 +15,7 @@ from dominate.tags import img
 import json
 import datetime, time
 import os, ast
+from threading import Event
 
 #from .forms import ChannelTesterForm
 from .forms import PerfTesterForm, LoginForm, RegisterForm, ChannelTesterForm
@@ -230,6 +231,7 @@ def logout():
     flash('Goodbye') 
     return redirect(url_for('.index'))
 
+STOP_EVENT = Event()
 
 @frontend.route('/Results/', methods=('GET', 'POST'))
 #@roles_required('Admin')
@@ -248,8 +250,10 @@ def Res_Table():
 	Config['countries'] = ["US"]
 	Config['htmodes'] = ["vht80"]
 	new_conf = ConfUpdater(Config, Config['htmodes'][0], Config['countries'][0]).get_conf()
-	a = candela_channel_tester.CandelaChannelTester(new_conf)
-	a.background_launcher()
+	global thread
+	thread = candela_channel_tester.CandelaChannelTester(new_conf, STOP_EVENT)
+	thread.start()
+	#a.background_launcher()
 
 	items = []
 	#for key, value in Config.iteritems() :
@@ -272,3 +276,10 @@ def Res_Table():
 		#print(json_data['channel']['TCP']['APtoClient'])
 	 
     	return render_template('res.html',Config=Config, json_data=json_data)
+
+@frontend.route('/Stop/', methods=('GET', 'POST'))
+def Stop():
+	STOP_EVENT.set()
+	global thread
+	thread.join()
+	return "STOP", 9999

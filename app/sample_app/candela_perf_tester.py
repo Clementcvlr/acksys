@@ -17,19 +17,20 @@ myconfig ={}
 myconfig['EUT'] = "192.168.100.20"
 myconfig['test_id'] = "33"
 myconfig['operator'] = "cc"
-myconfig['htmodes'] = ["vht80","vht40","vht20","ht40+_5Ghz","ht20_5Ghz","ht40+_24Ghz","ht20_24Ghz"]
+myconfig['htmode'] = "VHT80"
 myconfig['wifi_card'] = "1"
-myconfig['channels'] = [ '1','2','3','4','5','6','7','8','9','10','11','36','40','44','48','52','56','60','64','100','104','108','112','116','120','124','128','132','136','140','149','153','157''161','165' ]
+myconfig['channels'] = ['149']
 myconfig['attenuator'] = "39"
-myconfig['mode'] = "ap"
+myconfig['mode'] = ['AP', 'Client']
 myconfig['prot'] = "TCP"
 myconfig['tid_ap'] = "TID_1-1-1-3"
 myconfig['tid_client'] = "TID_1-1-2-3"
 myconfig['tx_power'] = "10"
 myconfig['reboot'] = False
-myconfig['attn_list'] = ['200', '300', '400', '500', '600', '700', '800']
+myconfig['attn'] = ['340']
 myconfig['attn_duration'] = "60000"
 myconfig['countries'] = ['US']
+myconfig['hwmode'] = "11ac"
 
 
 #--------Configs template pour tester différents modes (HT20, HT40, VHT40, VHT80...)---
@@ -99,8 +100,8 @@ logger = logging.getLogger('main')
 logger.setLevel(logging.DEBUG)
 
 
-class CandelaChannelTester(threading.Thread):
-	def __init__(self, Config, stop_event):
+class CandelaChannelTester():
+	def __init__(self, Config):
 		#Creating Test dir
 		my_file = Path("/tmp/candela_channel/" + str(Config['test_id']))
 		if not my_file.is_dir():
@@ -115,8 +116,8 @@ class CandelaChannelTester(threading.Thread):
 		self.logger.addHandler(fh)
 		#self.logger.info("Loop number {0}".format(i))
 		self.Config = Config
-		self.stop_event = stop_event
-		threading.Thread.__init__(self)
+		#self.stop_event = stop_event
+		#threading.Thread.__init__(self)
 
 	def run(self):
 		#Show Config and print to file
@@ -127,16 +128,10 @@ class CandelaChannelTester(threading.Thread):
 		self.print_conf(Config, "/tmp/candela_channel/" + str(Config['test_id']) + "/config.txt")
 
 		#Creating Json File
-		json_str = self.InitJson(Config)
-		json_data = json.loads(json_str)
-		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
-			json.dump(json_data, f)
-
-		#Estimation de la duree du test
-		end_of_test = self.Estimated_duration(Config)
-		print("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
-		self.logger.info("\nEnd of Test (Estimated) : {0}".format(end_of_test[1]))
-
+		#json_str = self.InitJson(Config)
+		#json_data = json.loads(json_str)
+		#with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'w') as f :
+		#	json.dump(json_data, f)
 
 		#Arret et suppression du GUI
 		telnet("report /media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report NO")
@@ -147,120 +142,126 @@ class CandelaChannelTester(threading.Thread):
 		#Wait For Ping
 		Ping(Config['EUT'])
 
+			#Ajout de cross connect UDP
+		#TODO : Cet ajout est fait de cette manière dans le .sh, voir si c'est utile...
+#		telnet("add_endp 901_-_Test_ModeAP_APtoClient_UDP-A 1 1 2 lf_udp -1 Yes 0")
+#		telnet("add_endp 902_-_Test_ModeAP_ClienttoAP_UDP-A 1 1 2 lf_udp -1 Yes 0")
+		#Conversion de la liste de valeurs d'attenuation en format comprehensible par Candela
+#		attn_list_cand = ','.join(Config['attn_list'])	
+		#Creation du script d'attenuation
+#		telnet("set_script " + str(Config['attenuator']) + " my_script NA ScriptAtten '"+ str(Config['attn_duration']) + " " + attn_list_cand + "' NA NA")
+
+			
+
+		#Creation des dossiers de resultat pour chaque canal
+		folder_list = [ "01-ModeAP_UDP_APtoC",
+				"02-ModeAP_UDP_CtoAP",
+				"03-ModeAP_TCP_APtoC",
+				"04-ModeAP_TCP_CtoAP",
+				"05-ModeClient_UDP_APtoC",
+				"06-ModeClient_UDP_CtoAP",
+				"07-ModeClient_TCP_APtoC",
+				"08-ModeClient_TCP_CtoAP"]
+		#for folder_name in folder_list:
+		#	self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + folder_name
 		ssh = check_ssh(Config['EUT'], 'root')
-
-		#Copie script Monitoring (Equivalent au script d'implantation monitoring_v1)
-		ssh.exec_command("mkdir -p /usr/monitoring_v1/DATA")
-		scp = SCPClient(ssh.get_transport()) 
-		#TODO : Change path of the following script file
-		scp.put("/home/chevalier/acksys_test_base/app/sample_app/script.sh", "/usr/monitoring_v1/script.sh")
-
-		#Config Initiale de l'EUT (enable radio card, setting mode, SSID..)
-		self.logger.debug("Config de l'EUT par uci")
 		ssh.exec_command("uci set wireless.radio" + str(int(Config['wifi_card'])) + ".disabled=0 ; uci set wireless.radio" + str(int(Config['wifi_card'])) + "w0.ssid=TestEtValidationCandela ; uci set wireless.radio" + str(int(Config['wifi_card']))  + "w0.mode=" + str(Config['mode']) + " ; uci commit ; apply_config")
-		scp.close()
 		ssh.close()
 
-		if Config['mode'] == "ap" :
-			self.logger.debug("Loading " + str(Config['tid_ap']) + " OVERWRITE")
-			print("\nLoading " + str(Config['tid_ap']) + " OVERWRITE")
-			telnet("load " + str(Config['tid_ap']) + " OVERWRITE")
-			cxmode = "AP"
-		else :
-			self.logger.debug("Loading " + str(Config['tid_client']) + " OVERWRITE")
-			telnet("\nLoading " + str(Config['tid_client']) + " OVERWRITE")
-			cxmode = "Client"
-		#Ajout de cross connect UDP
-		#TODO : Cet ajout est fait de cette manière dans le .sh, voir si c'est utile...
-		telnet("add_endp 901_-_Test_ModeAP_APtoClient_UDP-A 1 1 2 lf_udp -1 Yes 0")
-		telnet("add_endp 902_-_Test_ModeAP_ClienttoAP_UDP-A 1 1 2 lf_udp -1 Yes 0")
-		#Conversion de la liste de valeurs d'attenuation en format comprehensible par Candela
-		attn_list_cand = ','.join(Config['attn_list'])	
-		#Creation du script d'attenuation
-		telnet("set_script " + str(Config['attenuator']) + " my_script NA ScriptAtten '"+ str(Config['attn_duration']) + " " + attn_list_cand + "' NA NA")
+	
+		ssh = check_ssh(Config['EUT'])
+		#Set channel et 802.11 config par rapport à la config loadée
+		#print("Configuring EUT for channel {0}".format(channel))
+		#self.logger.debug("Configuring EUT with Channel {0}".format(channel))
+		ssh.exec_command("uci set wireless.radio"+ 
+				 str(Config['wifi_card']) +
+				 ".channel="+ str(Config['channels']) +
+				 " ; uci set wireless.radio" +
+				 str(Config['wifi_card']) +
+				 ".hwmode=" + Config['hwmode'] +
+				 " ; uci set wireless.radio" +
+				 str(Config['wifi_card']) +
+				 ".htmode=" + Config['htmode'] +
+				 " ; uci commit ; apply_config")
+		#Sleep 8 : Wait network link up
+		time.sleep(8)
+		ssh.close()
+
+		self.logger.debug("Loading " + str(Config['tid_ap']) + " OVERWRITE")
+		print("\nLoading " + str(Config['tid_ap']) + " OVERWRITE")
+		telnet("load " + str(Config['tid_ap']) + " OVERWRITE")
+		cxmode = "AP"
 
 		#Creation des Tests groups
-		telnet("add_group 901")
-		telnet("add_group 902")
-		telnet("add_group 903")
-		telnet("add_group 904")
+		telnet("add_group 001")
+		telnet("add_group 002")
+		telnet("add_group 003")
+		telnet("add_group 004")
 
 		#Ajout des Cross Connects aux Tests Groups
-		telnet("add_tgcx 901 901_-_Test_Mode" + cxmode +"_APtoClient_UDP")
-		telnet("add_tgcx 902 902_-_Test_Mode" + cxmode +"_ClienttoAP_UDP")
-		telnet("add_tgcx 903 903_-_Test_Mode" + cxmode +"_APtoClient_TCP")
-		telnet("add_tgcx 904 904_-_Test_Mode" + cxmode +"_ClienttoAP_TCP")
+		telnet("add_tgcx 001 001_-_Mode" + cxmode +"_APtoClient_UDP")
+		telnet("add_tgcx 002 002_-_Mode" + cxmode +"_ClienttoAP_UDP")
+		telnet("add_tgcx 003 003_-_Mode" + cxmode +"_APtoClient_TCP")
+		telnet("add_tgcx 004 004_-_Mode" + cxmode +"_ClienttoAP_TCP")
+
+
+		for prot in Config['prot']:
+			self.Start(Config,"001",cxmode)
+			self.Start(Config,"002",cxmode)
+
+		self.logger.debug("Loading " + str(Config['tid_client']) + " OVERWRITE")
+		print("\nLoading conf CLient OVERWRITE")
+		telnet("\nLoading " + str(Config['tid_client']) + " OVERWRITE")
+		cxmode = "Client"
+
+		#Creation des Tests groups
+		telnet("add_group 001")
+		telnet("add_group 002")
+		telnet("add_group 003")
+		telnet("add_group 004")
+
+		#Ajout des Cross Connects aux Tests Groups
+		telnet("add_tgcx 001 001_-_Mode" + cxmode +"_APtoClient_UDP")
+		telnet("add_tgcx 002 002_-_Mode" + cxmode +"_ClienttoAP_UDP")
+		telnet("add_tgcx 003 003_-_Mode" + cxmode +"_APtoClient_TCP")
+		telnet("add_tgcx 004 004_-_Mode" + cxmode +"_ClienttoAP_TCP")
+
+		for prot in Config['prot']:
+			self.Start(Config,"003",cxmode)
+			self.Start(Config,"004",cxmode)
+
 			
 
-
-		#Demarrage de la boucle principale
-		for channel in Config['channels']:
-			if self.stop_event.is_set():
-				break
 			
-			self.logger.debug("Testing Channel {0}".format(channel))
-			print("Channel :   {0}".format(channel))
-			self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel)
-
-			#Creation des dossiers de resultat pour chaque canal
-			if str(Config['prot']) == 'UDP' :
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '901')
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '902')
-			elif str(Config['prot']) == 'TCP' :
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '903')
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '904')
-			elif str(Config['prot']) == 'Both' :
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '901')
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '902')
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '903')
-				self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + '904')
-			
-	                #TODO : Lancer le script monitoring dans le produit...
-				
-			ssh = check_ssh(Config['EUT'])
-			#Set channel et 802.11 config par rapport à la config loadée
-			print("Configuring EUT for channel {0}".format(channel))
-			self.logger.debug("Configuring EUT with Channel {0}".format(channel))
-			#TODO : Change hwmode + htmode avec les entrees du form
-			ssh.exec_command("uci set wireless.radio" + str(Config['wifi_card']) + ".channel="+ str(channel) +" ; uci set wireless.radio" + str(Config['wifi_card']) + ".hwmode=" + Config['hwmode'] + " ; uci set wireless.radio" + str(Config['wifi_card']) + ".htmode=" + Config['htmode'] + " ; uci commit ; apply_config")
-			#Sleep 8 : Wait network link up
-			time.sleep(8)
-			ssh.close()
-			
-			#Set channel et 802.11 config sur candela
-			#TODO : ajouter form pour wiphy0 et pour nombre antennes sur cand
-			telnet("set_wifi_radio 1 1 wiphy0 8 " + str(channel))
-			time.sleep(3)
-			telnet("set_wifi_radio 1 1 wiphy0 8 " + str(channel) + " NA NA NA NA NA " + str(Config['tx_power']) + " NA 0")
-
-
-			if Config['prot'] == 'TCP' :
-				print("Start the Test 903")
-				self.Start(Config, "903", cxmode, channel)
-				print("Start the Test 904")
-				self.Start(Config, "904", cxmode, channel)
-			elif Config['prot'] == 'UDP' :
-
-				
-				print("Start the Test 901")
-				self.Start(Config, "901", cxmode, channel)
-				print("Start the Test 902")
-				self.Start(Config, "902", cxmode, channel)
-			else :
-				print("Start the Test 903")
-				self.Start(Config, "903", cxmode, channel)
-				print("Start the Test 904")
-				self.Start(Config, "904", cxmode, channel)
-				print("Start the Test 901")
-				self.Start(Config, "901", cxmode, channel)
-				print("Start the Test 902")
-				self.Start(Config, "902", cxmode, channel)
-				print("End of test")
-				
-				self.logger.debug("End of instance")
-	#def background_launcher(self):
+		self.logger.debug("End of instance")
+#def background_launcher(self):
 	#	run_thread = threading.Thread(target=self.run)
     	#	run_thread.start()
+
+
+	def csv_charts_creator(candela_report_path, chart_name):
+		#Cette fonction va lire le fichier candela_report,
+		#qui est le resultat du script de dichotomie,
+		#Et va creer tous les fichier csv necessaires au post-traitement
+		#Equivalent au resultat du graphical display du resultat du script
+		with open(candela_report_path + "candela_report", "r") as f:
+			mylist = [line.strip() for line in f]
+
+		for line in mylist:
+			if chart_name in line and (chart_name + " (No Constraints)") not in line:
+				chart_spaces = []
+					     
+				for item in mylist[mylist.index(line) + 1 :len(mylist)]:
+					if "</graph2d>" in item:
+						break
+					chart_spaces.append(item)
+				  
+		chart_csv = []
+		for line in chart_spaces:
+			chart_csv.append(line.replace('\t', ','))
+		csv = open( candela_report_path + (chart_name.replace(' ','_')).replace('/','') + ".csv", "w")
+		for a in chart_csv:
+			csv.write(a + "\n")
 
 	#Retourne la duee approximative du test en secondes ainsi que l'heure de fin associée
 	def Estimated_duration(self, Config):
@@ -366,35 +367,30 @@ class CandelaChannelTester(threading.Thread):
 		return data_json
 
 	#Fonction prinicipale de test
-	def Start(self, Config, cand_id, cxmode, channel):
+	def Start(self, Config, cand_id, cxmode):
 
 		#Definition du sens et du Endpoint en fonction du test en cours (901, 902, 903 ou 904)
 		endpoint_sens = { 
-			"901" : ["AP_vers_Client", "901_-_Test_Mode" + cxmode + "_APtoClient_UDP", 'UDP'],
-			"902" : ["Client_vers_AP","902_-_Test_Mode" + cxmode + "_ClienttoAP_UDP", 'UDP'],
-			"903" : ["AP_vers_Client","903_-_Test_Mode" + cxmode + "_APtoClient_TCP", 'TCP'],
-			"904" : ["Client_vers_AP","904_-_Test_Mode" + cxmode + "_ClienttoAP_TCP", 'TCP']
+			"001" : ["AP_vers_Client","001_-_Mode" + cxmode + "_APtoClient_UDP", 'UDP'],
+			"002" : ["Client_vers_AP","002_-_Mode" + cxmode + "_ClienttoAP_UDP", 'UDP'],
+			"003" : ["AP_vers_Client","003_-_Mode" + cxmode + "_APtoClient_TCP", 'TCP'],
+			"004" : ["Client_vers_AP","004_-_Mode" + cxmode + "_ClienttoAP_TCP", 'TCP']
 			}
 		sens = endpoint_sens[cand_id][0]
 		endpoint = endpoint_sens[cand_id][1]
 		cx_prot = endpoint_sens[cand_id][2]
 
+		#Creation dossier resultat
+		self.create_folder('/tmp/candela_channel/' + Config['test_id'] + '/' + endpoint)
+
+
 		#Mise à jour du json
-		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
-			data = json.load(f)
-			data[channel][Config['mode']][cx_prot][sens] = "In_Progress"
-			f.seek(0)
-			json.dump(data, f)
-			f.truncate()
-		#Arret et suppression du GUI
-
-		
-		#On reboot l'EUT si requis par le formulaire (Reboot_request est un boolean)
-		if Config['reboot'] :
-			ssh = check_ssh(Config['EUT'])
-			ssh.exec_command("reboot")
-			ssh.close()
-
+		#with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
+		#	data = json.load(f)
+		#	data[channel][Config['mode']][cx_prot][sens] = "In_Progress"
+		#	f.seek(0)
+		#	json.dump(data, f)
+		#	f.truncate()
 
 		#Arrêt de tous les Cross Connects
 		telnet("stop_group_all")
@@ -413,7 +409,7 @@ class CandelaChannelTester(threading.Thread):
 		#Configuration de l'atténuateur pour la detection de l'association  avec le cross connect
 		self.logger.debug("Setting Attenuator {0}".format(Config['attenuator']))
 		print("Setting Attenuator {0}".format(Config['attenuator']))
-		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all 400")
+		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all " + str(Config['attn']))
 
 		#sleep 4 : Pour pallier à l'erreur telnet
 		time.sleep(4)
@@ -457,75 +453,41 @@ class CandelaChannelTester(threading.Thread):
 				
 		else :
 			
-			self.logger.info("Test {0} - Channel {1} is Running".format(cand_id, channel))
+			self.logger.info("Test {0} - Channel is Running".format(cand_id,))
 
-		#Running script monitoring v1
-		ssh = check_ssh(Config['EUT'])
-		print("Running Script script.sh in EUT")
-		ssh.exec_command("rm /usr/monitoring_v1/DATA/*")
-		time.sleep(2)
-		#TODO : Voir pour driver parametre driver du script... 
-		ssh.exec_command("cd /usr/monitoring_v1 ; ./script.sh wlan{0} ath10k > /dev/null".format(str(Config['wifi_card'])))
-		time.sleep(2)
-		ssh.close()
-		#if prot == "UDP" and dicho == "0":
-			#TODO
-
-		#Lancement du script d'atténuation 
-		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all START")
-
-		#Détermination du temps de l'essai	
-		test_timeout = time.time() +  len(Config['attn_list']) *  ( int(Config['attn_duration']) / 1000 ) 		
-		while time.time() < test_timeout :
-			#Afficher un compte à rebours sur la page Web...
-			print(time.strftime("%H:%M:%S") + ": Test en cours : " + Config['test_id'] + " - " + channel + " - " + cand_id )
-			time.sleep(1)
+		#test_timeout = time.time() +  len(Config['attn_list']) *  ( int(Config['attn_duration']) / 1000 ) 		
+		#while time.time() < test_timeout :
+		if cx_prot == "UDP":
+			#UDP
+			while self.Get_Endpoint_Status(endpoint + "-B") == "RUNNING":
+				#Afficher un compte à rebours sur la page Web...
+				print(time.strftime("%H:%M:%S") + ": Test en cours : " + Config['test_id'] + " - " + cand_id )
+				time.sleep(1)
+				
 			
-		#Récupération du fichier candela_report_attenuator Si besoin
 		
-		telnet("set_attenuator 1 1 " + str(Config['attenuator']) + " all STOP")
-		time.sleep(1)
-		if str(Config['prot']) != "UDP" or dicho != "0":
-			#TODO : Change testfile.txt to result path...
-			script_result = telnet("show_script_result 1.1.{0}".format(str(Config['attenuator'])))
-			candela_report_attenuator = open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + channel + "/" + cand_id + "/candela_report_attenuator","w") 
-			candela_report_attenuator.write(script_result)		
-		
+		elif cx_prot == "TCP":
+			test_timeout = time.time() + 3600
+			while time.time() < test_timeout:
+				print(time.strftime("%H:%M:%S") + ": Test en cours : " + Config['test_id'] + " - " + cand_id )
+				time.sleep(1)
+				
 		#Arret du Cross Connect
 		print("Stopping Candela test group")
 		telnet("stop_group " + cand_id)
 
-		#Arret du script de monitoring sur EUT
-		print("Stopping monitoring Script in EUT")
-		ssh = check_ssh(Config['EUT'])
-		time.sleep(1)
-		ssh.exec_command("killall script.sh")	
 		
-		#Lancement du script de récupération des DATAS de l'EUT
-		#TODO: Remplacer /tmp/candela... par le vrai PATH du script de recup. Voir si on peut pas copier directement le script à la racine de l'app...
-		scp = SCPClient(ssh.get_transport()) 
-		scp.get('/usr/monitoring_v1/DATA', '/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id + '/',  recursive=True)
-		scp.close()
-		ssh.close()
-		time.sleep(1)
-
-		#Deplacement de tous les fichiers du dossier DATA vers son dossier parent (Pour conformite avec macro excel)
-		data_files = os.listdir('/tmp/candela_channel/' + Config['test_id'] +     '/' + channel + '/' + cand_id + '/DATA')
-		for data_file in data_files :
-			shutil.move('/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id + '/DATA/'+data_file, '/tmp/candela_channel/' + Config['test_id'] + '/' + channel + '/' + cand_id)
-
-		
-		shutil.rmtree('/tmp/candela_channel/' + Config['test_id'] + '/' + channel +     '/' + cand_id + '/DATA')
+		#Arret du reporting manager
 		telnet("report " + "/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report" + "NO") #TODO : Creer variable pour le chemin du gui
 
 
 		#Mise à jour du json, statut done
-		with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
-			data = json.load(f)
-			data[channel][Config['mode']][cx_prot][sens] = "Done"
-			f.seek(0)
-			json.dump(data, f)
-			f.truncate()
+		#with open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + "jsonfile.json", 'r+') as f :
+		#	data = json.load(f)
+		#	data[channel][Config['mode']][cx_prot][sens] = "Done"
+		#	f.seek(0)
+		#	json.dump(data, f)
+		#	f.truncate()
 	
 
 		#Copie des fichiers depuis dossier GUI
@@ -534,15 +496,36 @@ class CandelaChannelTester(threading.Thread):
 		#TODO : Remplacer /tmp/candela_channel par le vrai dossier de resultat
 		cand_report_files = os.listdir('/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report')
 		for f in cand_report_files:
-			shutil.move("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f, "/tmp/candela_channel/" + str(Config['test_id']) + "/" + channel +"/" + cand_id + "/")
+			shutil.move("/media/data/TESTS_ET_VALIDATION/ISO700/003_-_Tests_en_cours/004_-_Scripts_de_test/GUI_report/" + f, "/tmp/candela_channel/" + str(Config['test_id']) + "/" + cand_id + "/" + f)
+
+		script_result = telnet("show_script_result {0}-A".format(endpoint))
+		candela_report_attenuator = open("/tmp/candela_channel/" + str(Config['test_id']) + "/" + cand_id + "/candela_report","w") 
+		#Pour test dichotomie UDP:
+		#Creation des fichiers csv pour etre conforme avec le Res du Graphical Display 
+		charts_to_save = [ 
+		"Max Peer RX-Bits-per-second v/s Payload Size",
+		"Max Peer RX-Bits-per-second (Low Level) v/s Payload Size",
+		"Max TX-Bits-per-second v/s Payload Size",
+		"Max Peer RX-PDUs-per-second v/s Payload Size",
+		"Max Peer RX-Pkts-per-second (Low Level) v/s Payload Size"
+		]
+
+		for chart in charts_to_save :
+			csv_charts_creator("/tmp/candela_channel/" + str(Config['test_id']) + "/" + cand_id + "/", chart)
+
+
+a = CandelaChannelTester(myconfig)
+a.run()
+
 '''	
+
 for country in myconfig['countries'] :
 	for htmode in myconfig['htmodes'] :
 		new_conf = ConfUpdater(myconfig, htmode, country).get_conf()
 		a = CandelaChannelTester(new_conf)
 		a.background_launcher()
 '''		
-print("ICCCCIII")
+#print("ICCCCIII")
 
 #-----------Looping this test----------
 #i = 1
